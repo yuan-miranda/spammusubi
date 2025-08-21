@@ -12,8 +12,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xF0F0F0);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.z = 3;
-camera.position.y = 2;
+camera.position.z = 1;
+camera.position.y = 1;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -46,7 +46,8 @@ loader.load('spam_musubi.glb', (gltf) => {
 });
 
 const clock = new THREE.Clock();
-let clickCount = 0;
+
+let clickCount = localStorage.getItem('clickCount') || 0;
 const counter = document.getElementById('counter');
 
 window.addEventListener('click', ({ clientX, clientY }) => {
@@ -81,6 +82,7 @@ window.addEventListener('click', ({ clientX, clientY }) => {
 
     clickCount++;
     counter.innerText = clickCount;
+    localStorage.setItem('clickCount', clickCount);
 });
 
 function animate() {
