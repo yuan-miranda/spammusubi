@@ -8,78 +8,101 @@ const config = {
     removeFloorY: -3
 };
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xF0F0F0);
-
-const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-);
-camera.position.set(0, 1.25, 1);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 0.6);
-hemiLight.position.set(0, 1, 0);
-scene.add(hemiLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(3, 5, 2);
-scene.add(dirLight);
-
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-
-let musubiModel = null;
-const loader = new GLTFLoader();
-
-// https://skfb.ly/oVqKQ
-loader.load('spam_musubi.glb', (gltf) => {
-    musubiModel = gltf.scene;
-    musubiModel.position.y = -0.5;
-    musubiModel.rotation.y = Math.PI / 2;
-    scene.add(musubiModel);
-});
-
+let scene, camera, renderer, controls, raycaster, mouse;
 const clock = new THREE.Clock();
+let popup = null;
+let counterEl = null;
+let clickCount = 0;
+let musubiModel = null;
 let miniMusubis = [];
 
-const popup = document.getElementById('popup');
-const counter = document.getElementById('counter');
-let clickCount = parseInt(localStorage.getItem('clickCount') || '0');
+document.addEventListener('DOMContentLoaded', () => {
+    initScene();
+    initRenderer();
+    initLighting();
+    initOrbitControls();
+    initRaycaster();
 
-function animateCounter(target) {
-    let current = 0;
-    const duration = 500;
-    const startTime = performance.now();
+    initUI();
+    loadMusubiModel();
+    eventListeners();
+    animate();
 
-    function update(time) {
-        const progress = Math.min((time - startTime) / duration, 1);
-        current = Math.floor(progress * target);
-        counter.innerText = current;
-
-        if (progress < 1) requestAnimationFrame(update);
-    }
-    requestAnimationFrame(update);
-}
-
-popup.addEventListener('click', () => {
-    popup.classList.add('hidden');
-    setTimeout(() => {
-        popup.style.display = 'none';
-        animateCounter(clickCount);
-    }, 500);
 });
 
-window.addEventListener('click', (event) => {
+
+function initScene() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xF0F0F0);
+
+    camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+    );
+    camera.position.set(0, 1.25, 1);
+}
+
+function initRenderer() {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+}
+
+function initLighting() {
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 0.6);
+    hemiLight.position.set(0, 1, 0);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(3, 5, 2);
+    scene.add(dirLight);
+}
+
+function initOrbitControls() {
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+}
+
+function initRaycaster() {
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+}
+
+function initUI() {
+    popup = document.getElementById('popup');
+    counterEl = document.getElementById('counter');
+    clickCount = parseInt(localStorage.getItem('clickCount') || '0');
+}
+
+function loadMusubiModel() {
+    const loader = new GLTFLoader();
+    // https://skfb.ly/oVqKQ
+    loader.load('spam_musubi.glb', (gltf) => {
+        musubiModel = gltf.scene;
+        musubiModel.position.y = -0.5;
+        musubiModel.rotation.y = Math.PI / 2;
+        scene.add(musubiModel);
+    });
+}
+
+function eventListeners() {
+    // load counter animation
+    popup.addEventListener('click', () => {
+        popup.classList.add('hidden');
+        setTimeout(() => {
+            popup.style.display = 'none';
+            animateCounter(clickCount);
+        }, 500);
+    });
+
+    window.addEventListener('click', handleMouseClick);
+    window.addEventListener('resize', handleWindowResize);
+}
+
+function handleMouseClick(event) {
     if (popup && popup.style.display !== 'none') return;
     if (!musubiModel) return;
 
@@ -93,7 +116,28 @@ window.addEventListener('click', (event) => {
     if (!intersect) return;
 
     spawnMiniMusubi(intersect.point);
-});
+}
+
+function handleWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animateCounter(target) {
+    let current = 0;
+    const duration = 500;
+    const startTime = performance.now();
+
+    function update(time) {
+        const progress = Math.min((time - startTime) / duration, 1);
+        current = Math.floor(progress * target);
+        counterEl.innerText = current;
+
+        if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
 
 function spawnMiniMusubi(position) {
     const miniMusubi = musubiModel.clone();
@@ -120,7 +164,7 @@ function spawnMiniMusubi(position) {
 
 function updateCounter() {
     clickCount++;
-    counter.innerText = clickCount;
+    counterEl.innerText = clickCount;
     localStorage.setItem('clickCount', clickCount);
 }
 
@@ -133,7 +177,6 @@ function animate() {
 
     renderer.render(scene, camera);
 }
-animate();
 
 function updateMiniMusubis(delta) {
     for (let i = miniMusubis.length - 1; i >= 0; i--) {
@@ -150,9 +193,3 @@ function updateMiniMusubis(delta) {
         }
     }
 }
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
