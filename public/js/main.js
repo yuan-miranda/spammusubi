@@ -15,6 +15,13 @@ let counterEl = null;
 let clickCount = 0;
 let musubiModel = null;
 let miniMusubis = [];
+let musubiScale = 1;
+let musubiScaleBoost = 1;
+
+let idleTime = 0;
+let dragTimeout;
+const idleThreshold = 2;
+const rotationSpeed = 0.5;
 
 document.addEventListener('DOMContentLoaded', () => {
     initScene();
@@ -22,14 +29,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initLighting();
     initOrbitControls();
     initRaycaster();
-
     initUI();
     loadMusubiModel();
     eventListeners();
     animate();
-
 });
-
 
 function initScene() {
     scene = new THREE.Scene();
@@ -41,7 +45,7 @@ function initScene() {
         0.1,
         1000
     );
-    camera.position.set(0, 1.25, 1);
+    camera.position.set(0, 1, 1);
 }
 
 function initRenderer() {
@@ -98,6 +102,14 @@ function eventListeners() {
         }, 500);
     });
 
+    // mouse
+    window.addEventListener('mousedown', startDragTimer);
+    window.addEventListener('mouseup', clearDragTimer);
+
+    // touch
+    window.addEventListener('touchstart', startDragTimer);
+    window.addEventListener('touchend', clearDragTimer);
+
     window.addEventListener('click', handleMouseClick);
     window.addEventListener('resize', handleWindowResize);
 }
@@ -115,7 +127,22 @@ function handleMouseClick(event) {
     const [intersect] = raycaster.intersectObject(musubiModel, true);
     if (!intersect) return;
 
+    musubiScaleBoost = 1.05;
     spawnMiniMusubi(intersect.point);
+}
+
+
+function startDragTimer() {
+    dragTimeout = setTimeout(() => {
+        controls.isDragging = true;
+    }, 200);
+}
+
+function clearDragTimer() {
+    clearTimeout(dragTimeout);
+    if (controls.isDragging) {
+        controls.isDragging = false;
+    }
 }
 
 function handleWindowResize() {
@@ -132,7 +159,7 @@ function animateCounter(target) {
     function update(time) {
         const progress = Math.min((time - startTime) / duration, 1);
         current = Math.floor(progress * target);
-        counterEl.innerText = current;
+        counterEl.innerText = current.toLocaleString();
 
         if (progress < 1) requestAnimationFrame(update);
     }
@@ -164,32 +191,66 @@ function spawnMiniMusubi(position) {
 
 function updateCounter() {
     clickCount++;
-    counterEl.innerText = clickCount;
+    counterEl.innerText = clickCount.toLocaleString();
     localStorage.setItem('clickCount', clickCount);
 }
 
 function animate() {
     requestAnimationFrame(animate);
-    controls.update();
 
     const delta = clock.getDelta();
-    updateMiniMusubis(delta);
+    controls.update();
 
+    // idle rotation
+    if (controls.isDragging) {
+        idleTime = 0;
+    } else if ((idleTime += delta) > idleThreshold && musubiModel) {
+        camera.position.lerp(new THREE.Vector3(0, 1, 1), 0.02);
+        musubiModel.rotation.y += rotationSpeed * delta;
+    }
+
+    // click scale
+    if (musubiModel) {
+        musubiScale += (musubiScaleBoost - musubiScale) * 0.1;
+        musubiModel.scale.setScalar(musubiScale);
+
+        if (Math.abs(musubiScale - musubiScaleBoost) < 0.01 && musubiScaleBoost > 1) {
+            musubiScaleBoost = 1;
+        }
+    }
+
+    updateMiniMusubis(delta);
     renderer.render(scene, camera);
 }
 
+
 function updateMiniMusubis(delta) {
     for (let i = miniMusubis.length - 1; i >= 0; i--) {
-        const { mesh, velocity, rotationSpeed } = miniMusubis[i];
-        velocity.y -= config.gravity * delta;
-        mesh.position.addScaledVector(velocity, delta);
-        mesh.rotation.x += rotationSpeed.x * delta;
-        mesh.rotation.y += rotationSpeed.y * delta;
-        mesh.rotation.z += rotationSpeed.z * delta;
+        const mini = miniMusubis[i];
+        const { mesh, velocity, rotationSpeed } = mini;
 
-        if (mesh.position.y < config.removeFloorY) {
-            scene.remove(mesh);
-            miniMusubis.splice(i, 1);
+        if (!mini.shrinking) {
+            // falling animation
+            velocity.y -= config.gravity * delta;
+            mesh.position.addScaledVector(velocity, delta);
+            mesh.rotation.x += rotationSpeed.x * delta;
+            mesh.rotation.y += rotationSpeed.y * delta;
+            mesh.rotation.z += rotationSpeed.z * delta;
+
+            // shrink when below floor
+            if (mesh.position.y < config.removeFloorY) {
+                mini.shrinking = true;
+                mini.shrinkSpeed = 1.5;
+            }
+        } else {
+            // shrinking animation
+            const scale = Math.max(0, mesh.scale.x - mini.shrinkSpeed * delta);
+            mesh.scale.setScalar(scale);
+
+            if (scale <= 0.01) {
+                scene.remove(mesh);
+                miniMusubis.splice(i, 1);
+            }
         }
     }
 }
