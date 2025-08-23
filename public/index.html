@@ -46,19 +46,47 @@
         }
 
         #store .item {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid black;
             border-radius: 8px;
             text-align: center;
             flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box;
+            height: 80px;
             font-size: small;
+
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
         }
 
+        #store .item.pressed {
+            transform: scale(0.96);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        #store .item h2.item-label {
+            margin: 5px 0;
+            font-size: 1rem;
+        }
+
+        #store .item p {
+            margin: 2px 0;
+            font-size: 0.8rem;
+            opacity: 0.85;
+        }
+
+        .keyShortcut {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
 
         #popup {
             display: flex;
@@ -115,6 +143,7 @@
 
             #store .item {
                 font-size: 0.5rem;
+                height: 60px;
             }
         }
     </style>
@@ -129,13 +158,20 @@
     </div>
 
     <div id="store">
-        <div class="item">
-            <h2>Clicks (TEST)</h2>
-        </div>
-        <div class="item">
-            <h2>Multiplier (TEST)</h2>
-        </div>
+        <button class="item">
+            <span class="keyShortcut">1</span>
+            <h2 class="item-label">Musubi Maker</h2>
+            <p class="item-price">Price: 10</p>
+            <p class="item-upgrade">Level: 1</p>
+        </button>
+        <button class="item">
+            <span class="keyShortcut">2</span>
+            <h2 class="item-label">Rice Cooker</h2>
+            <p class="item-price">Price: 100</p>
+            <p class="item-upgrade">Level: 3</p>
+        </button>
     </div>
+
 
     <div class="counter-wrapper">
         <h1 id="counter">0</h1>
@@ -162,6 +198,26 @@
             textContent: JSON.stringify(importMap)
         }));
     </script>
+    <script>
+        const storeButtons = document.querySelectorAll('#store .item');
+
+        function pressButton(button) {
+            button.classList.add('pressed');
+            setTimeout(() => button.classList.remove('pressed'), 100);
+        }
+
+        // button click
+        storeButtons.forEach(button =>
+            button.addEventListener('click', () => pressButton(button))
+        );
+
+        // keyboard press
+        document.addEventListener('keydown', e => {
+            const button = storeButtons[parseInt(e.key) - 1];
+            if (button) pressButton(button);
+        });
+    </script>
+
     <script src="./js/main.js" type="module"></script>
 </body>
 
